@@ -1,0 +1,17 @@
+{
+  "format": "little-endian uint32 token IDs",
+  "size": 32768,
+  "vocabulary_size": 262144,
+  "documents": 156231,
+  "tokens": 2556495,
+  "observed_unique_tokens": 16083,
+  "corpora": [
+    "/mnt/SSD/g4.cpp/src",
+    "/mnt/SSD/g4.cpp/include",
+    "/mnt/SSD/g4.cpp/docs",
+    "/mnt/SSD/g4.cpp/README.md",
+    "/mnt/SSD/g4.cpp/runs/google-gemma-4-26B-A4B-it",
+    "/mnt/Drive_2_lin/Programming/infiyomi/infiyomi-bench/results/gemma4-local-full-no-outline/20260620-155407-gemma4-local-mtp-manga109-s-10x24/quality",
+    "/mnt/Drive_2_lin/Programming/infiyomi/infiyomi-bench/results/gemma4-26b-a4b-it-fp8w-kvfp8-mtp-vllm-full/20260620-160020-gemma4-26b-a4b-it-fp8w-kvfp8-mtp-vllm-manga109-s-10x24/quality"
+  ]
+}
