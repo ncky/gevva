@@ -1,0 +1,30 @@
+{
+  "request_id": "email-001",
+  "state": {
+    "from": "alex@example.com",
+    "subject": "Please approve invoice by 5pm today",
+    "body": "Hi, the supplier invoice is due today at 5pm. Please reply confirming approval so we can pay it on time. Thanks, Alex."
+  },
+  "questions": {
+    "important": {
+      "type": "noul",
+      "instructions": "Does this email contain information or a request that matters to the recipient?"
+    },
+    "spam": {
+      "type": "noul",
+      "instructions": "Is this unsolicited junk, a scam, or deceptive bulk email?"
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does this email require action today or describe an immediate problem?"
+    },
+    "marketing": {
+      "type": "noul",
+      "instructions": "Is the main purpose advertising or promoting a product or service?"
+    },
+    "personal": {
+      "type": "noul",
+      "instructions": "Is this personal correspondence rather than business or an automated notice?"
+    }
+  }
+}

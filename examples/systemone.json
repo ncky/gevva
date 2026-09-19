@@ -1,0 +1,9 @@
+{
+  "model": "gevva-latest",
+  "state": {"message": "I was charged twice for the same order. Please refund the duplicate payment."},
+  "questions": {
+    "department": {"type": "choice", "instructions": "Which team should handle this request?", "criteria": {"billing": "Charges, refunds and invoices", "technical": "Product bugs and outages", "sales": "New purchases and pricing"}},
+    "refund": {"type": "noul", "instructions": "Does the customer request a refund?"},
+    "severity": {"type": "score", "instructions": "How serious is the reported problem?", "criteria": ["Cosmetic issue", "Financial inconvenience with a remedy", "Complete loss of access or data"]}
+  }
+}

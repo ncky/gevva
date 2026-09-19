@@ -1,0 +1,11 @@
+{
+  "model": "gevva-latest",
+  "state": "Answer from the image.",
+  "images": ["examples/shapes.png"],
+  "questions": {
+    "square_colour": {"type": "choice", "instructions": "What colour is the square?", "criteria": {"red": null, "blue": null, "green": null}},
+    "circle_colour": {"type": "choice", "instructions": "What colour is the circle?", "criteria": {"red": null, "blue": null, "green": null}},
+    "square_left": {"type": "noul", "instructions": "Is the square to the left of the circle?"},
+    "shape_count": {"type": "score", "instructions": "How many coloured shapes are present?", "criteria": ["No shapes", "One shape", "Two shapes", "Three shapes"]}
+  }
+}

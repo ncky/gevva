@@ -1,5 +1,17 @@
-/engine/external/
-/engine/build/
+/third_party/
 /runs/
 __pycache__/
 *.pyc
+
+/data/
+/.venv-doom/
+
+# Local launch settings, model bundles, and Python build products.
+/gevva.toml
+/models/
+/build/
+/dist/
+/*.egg-info/
+
+/docs/
+/.venv/

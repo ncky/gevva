@@ -11,7 +11,7 @@ The root `CMakeLists.txt` builds `gevva-engine`;
 
 - `src/` and `include/gevva/`: native inference implementation.
 - `gevva/`: Python API, configuration, and worker lifecycle.
-- `tools/`: model preparation and benchmark utilities.
+- `tools/`: model download and preparation.
 - `tests/` and `examples/`: checks and runnable request examples.
 - `third_party/`, `build/`, and `runs/`: ignored dependencies, build output, and local results.
 
@@ -180,7 +180,7 @@ experiments and is not the Jev model.
 
 Use the example's image warmup and common-shape warmup. Keep a process resident
 and use a persistent `gevva.Client`; repeatedly launching the model adds seconds.
-Three to ten questions per shared state are the measured operating range.
+One, five, and ten questions per shared state are the measured operating points.
 The API defaults to read-only shared prefixes and restricted-option readout.
 
 For fast screenshot decisions, set `parameters.image_soft_tokens` to **140**
@@ -199,17 +199,14 @@ and image caches are reset on each measured request. Timings exclude input
 fixture generation and model startup. They are workload measurements, not
 latency guarantees.
 
-## Checks and benchmarks
+## Checks
 
 ```sh
-.venv/bin/python -m pip install '.[benchmark]' # image fixture generation only
 PYTHONPATH=tests python -m unittest test_worker test_config test_api test_scheduler
 python tests/test_gpu_selection.py # requires both installed GPU models
 GEVVA_GPU=5090 python tests/test_decision_gpu.py
 GEVVA_GPU=5090 python tests/test_multimodal_api_gpu.py
 GEVVA_GPU=5090 ctest --test-dir build --output-on-failure
-GEVVA_GPU=pro6000 .venv/bin/python tools/benchmark_continuous.py --counts 1 5 10 --kinds email image --image-tokens 140 --repeats 100 --output runs/pro6000-speed.json
-GEVVA_GPU=5090 python tools/soak_inference.py --requests 3000 --mixed-codecs --output runs/5090-soak.json
 ```
 
 Use `GEVVA_CONFIG=/path/to/gevva.toml` when running tools outside the config's

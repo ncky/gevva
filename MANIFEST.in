@@ -1,0 +1,18 @@
+include gevva.example.toml
+include README.md
+include SETUP.md
+recursive-include gevva *.py *.png
+prune tests
+include CMakeLists.txt
+include setup.sh
+recursive-include src *.cpp *.cu *.cuh *.hpp
+recursive-include include *.hpp
+recursive-include tools *.py
+prune third_party
+prune runs
+prune data
+recursive-include examples *.json *.png *.jpg *.mp4 *.py *.md *.txt
+prune .venv-doom
+exclude gevva.toml
+prune docs
+prune .venv

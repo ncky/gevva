@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gevva"
+version = "0.1.0"
+description = "Local Gemma 4 26B-A4B typed-decision inference with a SystemOne-shaped API"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+prepare = ["torch", "safetensors", "flashinfer-python", "huggingface_hub"]
+
+[project.scripts]
+gevva = "gevva.server:main"
+
+[tool.setuptools.packages.find]
+include = ["gevva*"]
+
+[tool.setuptools.package-data]
+gevva = ["assets/*.png"]

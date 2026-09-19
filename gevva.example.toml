@@ -1,0 +1,30 @@
+schema_version = 1
+
+[engine]
+binary = "./build/gevva-engine"
+gpu = "5090" # or "pro6000"
+worker_timeout = 120
+startup_timeout = 300 # first model load can be slow on cold storage
+# cuda_visible_devices = "GPU-your-uuid" # optional, for multiple cards
+
+[model]
+root = "./models"
+# Default component directories under root:
+# gemma4-26b-a4b-nvfp4, gemma4-26b-a4b-trtllm,
+# gemma4-26b-a4b-dense-fp8, gemma4-26b-a4b-target-vocab-int8.
+# Override individual paths if your prepared files use a different layout:
+# target = "./models/custom-target"
+# experts = "./models/custom-experts"
+# dense = "./models/custom-dense"
+# vocab = "./models/custom-vocab"
+
+[server]
+host = "127.0.0.1"
+port = 8081
+queue_capacity = 8
+max_connections = 32
+api_key_env = "GEVVA_API_KEY"
+
+[warmup]
+images = true
+common_shapes = true

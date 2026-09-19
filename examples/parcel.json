@@ -1,0 +1,9 @@
+{
+  "state": "Order 1842 contains three books in a blue parcel. Payment is complete. Dispatch is scheduled for tomorrow. No refund has been requested.",
+  "questions": [
+    {"id": "colour", "question": "What colour is the parcel?", "options": ["Red", "Blue", "Green"], "label_index": 1},
+    {"id": "paid", "type": "boolean", "question": "Has payment been completed?", "label_index": 1},
+    {"id": "refund", "type": "boolean", "question": "Has a refund been requested?", "label_index": 0},
+    {"id": "books", "type": "score", "question": "How many books does the order contain?", "options": ["No books", "One book", "Two books", "Three books"], "levels": [0, 1, 2, 3], "label_index": 3}
+  ]
+}
