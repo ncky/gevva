@@ -31,9 +31,9 @@ Endpoint: `POST /v1/systemone`. [Example request](examples/email-flags.json) ·
 
 Doom demo using structured game state (visible objects and positions) to choose turning and firing:
 
-<video controls src="examples/doom/structured.mp4" poster="examples/doom/structured.png" width="800">
-  <a href="examples/doom/structured.mp4"><img src="examples/doom/structured.png" alt="Watch Gevva playing Doom using structured state" width="800"></a>
-</video>
+[![Watch Gevva playing Doom using structured state](examples/doom/structured.png)](examples/doom/structured.mp4)
+
+[Watch the 30-second video](examples/doom/structured.mp4).
 
 Measured on an **RTX PRO 6000** (median request latency / answers per second):
 
