@@ -2,7 +2,7 @@ include gevva.example.toml
 include README.md
 include SETUP.md
 recursive-include gevva *.py *.png
-prune tests
+recursive-include tests *.cpp CMakeLists.txt
 include CMakeLists.txt
 include setup.sh
 recursive-include src *.cpp *.cu *.cuh *.hpp

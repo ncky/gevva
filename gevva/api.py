@@ -140,7 +140,7 @@ class LocalEvaluator:
 
     @property
     def healthy(self):
-        return not self.scheduler.closed and self.worker.process.poll() is None
+        return not self.scheduler.closed and self.worker.healthy
 
     def _execute(self, item):
         request, questions, request_id = item
@@ -181,8 +181,9 @@ class LocalEvaluator:
         return await asyncio.wrap_future(self.submit(payload))
 
     def close(self):
+        self.scheduler.close(wait=False)
+        self.worker.close()  # Interrupt active transport before joining its owner.
         self.scheduler.close()
-        self.worker.close()
 
     def __enter__(self):
         return self

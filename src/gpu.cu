@@ -2,6 +2,7 @@
 #include "gevva/tiled_attention.hpp"
 #include "gevva/runtime.hpp"
 #include "gevva/cudnn_attention.hpp"
+#include "gpu/fp8_resources.hpp"
 
 #include <cuda_runtime_api.h>
 #include <cuda_profiler_api.h>

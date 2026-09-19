@@ -129,9 +129,15 @@ another evaluator's selection in the same Python process.
 | `server` | `host`, `port`, `queue_capacity` (8), `max_connections` (32), `api_key_env` (`GEVVA_API_KEY`) |
 | `warmup` | `images` (false), `common_shapes` (true) |
 
+`max_connections` limits accepted connections, including idle keep-alive and
+incomplete-header clients, before handler threads are created. Excess connections
+are closed. Accepted sockets have a 30-second inactivity timeout. The inference
+queue remains separately bounded by `queue_capacity`.
+
 Unknown keys and invalid types are rejected. `schema_version = 1` is optional.
 When the environment variable named by `api_key_env` is set, requests need
-`Authorization: Bearer <value>`. The key itself is not stored or printed in TOML.
+`Authorization: Bearer <value>`. Keys must use non-space printable ASCII characters. The key itself is not
+stored or printed in TOML.
 `--print-config` prints resolved settings; `--check-config` checks configuration
 and required files without loading a model or touching a GPU. It does not check
 weight contents or guarantee free GPU memory.
@@ -150,7 +156,10 @@ python -m gevva --config gevva.toml --host 0.0.0.0 --port 8090 --gpu 5090
 `--bind` aliases `--host`. `python -m gevva.server` also remains supported.
 The server prints a ready record and opens its HTTP port after warmup. Stop it
 with Ctrl-C. Cold startup gets up to 300 seconds to load weights; later requests
-use the separate 120-second worker timeout. `GET /health` reports readiness; `GET /v1/models` lists aliases.
+use the separate 120-second worker timeout. Each deadline covers the complete
+request write and newline-terminated response read. A timeout, oversized response
+(over 64 MiB), or broken transport stops and reaps the worker; health then reports
+unavailable. Shutdown cancels pending work and interrupts active inference. `GET /health` reports readiness; `GET /v1/models` lists aliases.
 
 ```sh
 curl http://127.0.0.1:8081/v1/systemone \
@@ -202,7 +211,11 @@ latency guarantees.
 ## Checks
 
 ```sh
-PYTHONPATH=tests python -m unittest test_worker test_config test_api test_scheduler
+PYTHONPATH=tests python -m unittest test_worker test_config test_api test_scheduler test_server_limits
+# Native failure-path tests also run without CUDA or model weights:
+cmake -S tests -B build/cpu-tests -G Ninja
+cmake --build build/cpu-tests
+ctest --test-dir build/cpu-tests --output-on-failure
 python tests/test_gpu_selection.py # requires both installed GPU models
 GEVVA_GPU=5090 python tests/test_decision_gpu.py
 GEVVA_GPU=5090 python tests/test_multimodal_api_gpu.py

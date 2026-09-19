@@ -14,8 +14,38 @@ from .config import ConfigError, load_config
 MAX_BODY = 64 * 1024 * 1024
 
 
-def create_server(evaluator, host='127.0.0.1', port=8081, api_key=None, capacity=32):
-    admission = threading.BoundedSemaphore(capacity)
+def create_server(evaluator, host='127.0.0.1', port=8081, api_key=None, capacity=32,
+                  *, connection_timeout=30, request_capacity=None):
+    if type(capacity) is not int or capacity < 1:
+        raise ValueError('connection capacity must be a positive integer')
+    request_capacity = capacity if request_capacity is None else request_capacity
+    if type(request_capacity) is not int or request_capacity < 1:
+        raise ValueError('request capacity must be a positive integer')
+    if api_key is not None and (not isinstance(api_key, str) or not api_key or
+                               any(not 33 <= ord(char) <= 126 for char in api_key)):
+        raise ConfigError('API key must contain only non-space printable ASCII characters')
+    expected_authorization = ('Bearer ' + api_key).encode('ascii') if api_key is not None else None
+    connections = threading.BoundedSemaphore(capacity)
+    admission = threading.BoundedSemaphore(request_capacity)
+
+    class Server(ThreadingHTTPServer):
+        def process_request(self, request, client_address):
+            # Admission happens before ThreadingMixIn can create a handler.
+            if not connections.acquire(blocking=False):
+                self.shutdown_request(request)
+                return
+            try:
+                request.settimeout(connection_timeout)
+                super().process_request(request, client_address)
+            except BaseException:
+                connections.release()
+                raise
+
+        def process_request_thread(self, request, client_address):
+            try:
+                super().process_request_thread(request, client_address)
+            finally:
+                connections.release()
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
@@ -35,7 +65,8 @@ def create_server(evaluator, host='127.0.0.1', port=8081, api_key=None, capacity
             self.wfile.write(body)
 
         def authorized(self):
-            if api_key and not hmac.compare_digest(self.headers.get('Authorization', ''), 'Bearer ' + api_key):
+            provided = self.headers.get('Authorization', '').encode('latin-1')
+            if expected_authorization is not None and not hmac.compare_digest(provided, expected_authorization):
                 self.reply(401, {'error': {'message': 'Invalid API key'}}, close=True)
                 return False
             return True
@@ -70,7 +101,6 @@ def create_server(evaluator, host='127.0.0.1', port=8081, api_key=None, capacity
                 self.reply(529, {'error': {'message': 'Local inference queue is full'}}, close=True)
                 return
             try:
-                self.connection.settimeout(30)
                 body = self.rfile.read(length)
                 if len(body) != length:
                     raise ValueError('Incomplete request body')
@@ -96,7 +126,7 @@ def create_server(evaluator, host='127.0.0.1', port=8081, api_key=None, capacity
             finally:
                 admission.release()
 
-    return ThreadingHTTPServer((host, port), Handler)
+    return Server((host, port), Handler)
 
 
 def main(argv=None):

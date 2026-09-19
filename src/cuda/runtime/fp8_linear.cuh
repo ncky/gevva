@@ -27,6 +27,20 @@ struct Fp8LinearRunner::Impl {
       for (void* p : pointers) if (p) cudaFree(p);
     }
   };
+  struct ResourceRuntime {
+    using Event = cudaEvent_t;
+    static void allocate(void** pointer, std::size_t bytes, const char* label) {
+      check(cudaMalloc(pointer, bytes), label);
+    }
+    static void copy(void* destination, const void* source, std::size_t bytes, const char* label) {
+      check(cudaMemcpy(destination, source, bytes, cudaMemcpyHostToDevice), label);
+    }
+    static void create_event(Event* event, const char* label) {
+      check(cudaEventCreateWithFlags(event, cudaEventDisableTiming), label);
+    }
+    static void destroy_event(Event event) noexcept { cudaEventDestroy(event); }
+    static void free(void* pointer) noexcept { cudaFree(pointer); }
+  };
   struct PackedPair {
     void* data{};
     ~PackedPair() { if (data) cudaFree(data); }
@@ -164,45 +178,27 @@ struct Fp8LinearRunner::Impl {
         packed_pairs.push_back(std::move(packed));
       }
     }
-    check(cudaMalloc(&activation,
-                     static_cast<std::size_t>(storage_tokens) * maximum_width),
-          "cudaMalloc(FP8 activation)");
-    check(cudaMalloc(&activation_scales, storage_tokens * sizeof(float)),
-          "cudaMalloc(FP8 activation scales)");
-    std::vector<float> initial_scales(storage_tokens, 1.0F);
-    check(cudaMemcpy(activation_scales, initial_scales.data(),
-                     initial_scales.size() * sizeof(float),
-                     cudaMemcpyHostToDevice),
-          "initialize FP8 activation scales");
-    check(cudaMalloc(&padded_output,
-                     static_cast<std::size_t>(concurrent_workspaces) *
-                         padded_tokens *
-                         maximum_output * sizeof(__nv_bfloat16)),
-          "cudaMalloc(FP8 padded output)");
-    check(cudaMalloc(&secondary_activation,
-                     static_cast<std::size_t>(storage_tokens) * maximum_width),
-          "cudaMalloc(secondary FP8 activation)");
-    check(cudaMalloc(&secondary_activation_scales,
-                     storage_tokens * sizeof(float)),
-          "cudaMalloc(secondary FP8 activation scales)");
-    workspace_owner = shared_workspace ? std::move(shared_workspace)
-                                       : std::make_shared<Workspaces>(concurrent_workspaces);
-    if (workspace_owner->count < concurrent_workspaces)
-      throw std::runtime_error("shared FP8 workspace count is too small");
+    resources = std::make_unique<detail::Fp8Resources<ResourceRuntime>>(
+        static_cast<std::size_t>(storage_tokens) * maximum_width, storage_tokens,
+        static_cast<std::size_t>(concurrent_workspaces) * padded_tokens * maximum_output * sizeof(__nv_bfloat16),
+        [&] {
+          workspace_owner = shared_workspace ? std::move(shared_workspace)
+              : std::make_shared<Workspaces>(concurrent_workspaces);
+          if (workspace_owner->count < concurrent_workspaces)
+            throw std::runtime_error("shared FP8 workspace count is too small");
+        });
+    activation = static_cast<__nv_fp8_e4m3*>(resources->activation);
+    activation_scales = static_cast<float*>(resources->activation_scales);
+    padded_output = static_cast<__nv_bfloat16*>(resources->padded_output);
+    secondary_activation = static_cast<__nv_fp8_e4m3*>(resources->secondary_activation);
+    secondary_activation_scales = static_cast<float*>(resources->secondary_activation_scales);
+    unit_scale = static_cast<float*>(resources->unit_scale);
+    activation_ready = resources->activation_ready;
+    secondary_activation_ready = resources->secondary_activation_ready;
     workspace = workspace_owner->pointers[0];
     auxiliary_workspace = workspace_owner->pointers[1];
     tertiary_workspace = workspace_owner->pointers[2];
-    check(cudaMalloc(&unit_scale, sizeof(float)),
-          "cudaMalloc(FP8 unit scale)");
-    const float one = 1.0F;
-    check(cudaMemcpy(unit_scale, &one, sizeof(one), cudaMemcpyHostToDevice),
-          "copy FP8 unit scale");
     lt_handle = workspace_owner->handle;
-    check(cudaEventCreateWithFlags(&activation_ready, cudaEventDisableTiming),
-          "create FP8 activation ready event");
-    check(cudaEventCreateWithFlags(&secondary_activation_ready,
-                                   cudaEventDisableTiming),
-          "create secondary FP8 activation ready event");
   }
 
   ~Impl() {
@@ -213,14 +209,7 @@ struct Fp8LinearRunner::Impl {
       if (weight.weight_layout) cublasLtMatrixLayoutDestroy(weight.weight_layout);
       if (weight.operation) cublasLtMatmulDescDestroy(weight.operation);
     }
-    if (secondary_activation_ready) cudaEventDestroy(secondary_activation_ready);
-    if (activation_ready) cudaEventDestroy(activation_ready);
-    if (unit_scale) cudaFree(unit_scale);
-    if (padded_output) cudaFree(padded_output);
-    if (secondary_activation_scales) cudaFree(secondary_activation_scales);
-    if (secondary_activation) cudaFree(secondary_activation);
-    if (activation_scales) cudaFree(activation_scales);
-    if (activation) cudaFree(activation);
+
   }
 
   bool launch(const void* exact_weight, int outputs, int inputs,
@@ -612,6 +601,7 @@ struct Fp8LinearRunner::Impl {
   mutable float* secondary_activation_scales{};
   __nv_bfloat16* padded_output{};
   std::shared_ptr<Workspaces> workspace_owner;
+  std::unique_ptr<detail::Fp8Resources<ResourceRuntime>> resources;
   void* workspace{};
   void* auxiliary_workspace{};
   void* tertiary_workspace{};

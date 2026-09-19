@@ -4,6 +4,8 @@
 #include <array>
 #include <cstring>
 #include <fstream>
+#include <limits>
+#include <string_view>
 #include <stdexcept>
 
 #include <fcntl.h>
@@ -13,6 +15,22 @@
 #include <nlohmann/json.hpp>
 
 namespace gevva {
+namespace {
+std::uint64_t dtype_bytes(std::string_view dtype) {
+  if (dtype == "BOOL" || dtype == "I8" || dtype == "U8" || dtype == "F8_E4M3" ||
+      dtype == "F8_E5M2" || dtype == "F8_E8M0") return 1;
+  if (dtype == "I16" || dtype == "U16" || dtype == "F16" || dtype == "BF16") return 2;
+  if (dtype == "I32" || dtype == "U32" || dtype == "F32") return 4;
+  if (dtype == "I64" || dtype == "U64" || dtype == "F64") return 8;
+  throw std::runtime_error("unsupported safetensors dtype: " + std::string(dtype));
+}
+
+std::uint64_t unsigned_integer(const nlohmann::json& value) {
+  if (!value.is_number_unsigned())
+    throw std::runtime_error("safetensors dimensions and offsets must be nonnegative integers");
+  return value.get<std::uint64_t>();
+}
+}  // namespace
 
 ShardInfo inspect_safetensors(const std::filesystem::path& path) {
   ShardInfo out;
@@ -38,19 +56,50 @@ ShardInfo inspect_safetensors(const std::filesystem::path& path) {
 
   const auto json = nlohmann::json::parse(header);
   const std::uint64_t data_size = out.file_size - 8 - header_size;
+  if (!json.is_object()) throw std::runtime_error("safetensors header must be an object");
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> ranges;
   for (auto it = json.begin(); it != json.end(); ++it) {
-    if (it.key() == "__metadata__") continue;
+    if (it.key() == "__metadata__") {
+      if (!it.value().is_object()) throw std::runtime_error("invalid safetensors metadata");
+      for (const auto& value : it.value())
+        if (!value.is_string()) throw std::runtime_error("safetensors metadata values must be strings");
+      continue;
+    }
     TensorInfo tensor;
     tensor.dtype = it.value().at("dtype").get<std::string>();
-    tensor.shape = it.value().at("shape").get<std::vector<std::uint64_t>>();
-    const auto offsets = it.value().at("data_offsets").get<std::array<std::uint64_t, 2>>();
-    tensor.begin = offsets[0];
-    tensor.end = offsets[1];
-    if (tensor.begin > tensor.end || tensor.end > data_size) {
-      throw std::runtime_error("out-of-range tensor " + it.key() + " in " + path.string());
+    const auto& shape = it.value().at("shape");
+    const auto& offsets = it.value().at("data_offsets");
+    if (!shape.is_array() || !offsets.is_array() || offsets.size() != 2)
+      throw std::runtime_error("invalid safetensors shape/offsets for " + it.key());
+    std::uint64_t elements = 1;
+    for (const auto& dimension : shape) {
+      const auto size = unsigned_integer(dimension);
+      if (size && elements > std::numeric_limits<std::uint64_t>::max() / size)
+        throw std::runtime_error("safetensors shape overflow for " + it.key());
+      elements *= size;
+      tensor.shape.push_back(size);
     }
+    const auto element_bytes = dtype_bytes(tensor.dtype);
+    if (elements > std::numeric_limits<std::uint64_t>::max() / element_bytes)
+      throw std::runtime_error("safetensors payload size overflow for " + it.key());
+    tensor.begin = unsigned_integer(offsets[0]);
+    tensor.end = unsigned_integer(offsets[1]);
+    if (tensor.begin > tensor.end || tensor.end > data_size)
+      throw std::runtime_error("out-of-range tensor " + it.key() + " in " + path.string());
+    if (elements * element_bytes != tensor.end - tensor.begin)
+      throw std::runtime_error("safetensors payload size mismatch for " + it.key());
+    ranges.emplace_back(tensor.begin, tensor.end);
     out.tensors.emplace(it.key(), std::move(tensor));
   }
+  std::sort(ranges.begin(), ranges.end());
+  std::uint64_t end = 0;
+  for (const auto& [begin, next] : ranges) {
+    if (begin != end)
+      throw std::runtime_error("safetensors payload has overlapping tensors or gaps: " + path.string());
+    end = next;
+  }
+  if (end != data_size)
+    throw std::runtime_error("safetensors payload has unclaimed bytes: " + path.string());
   return out;
 }
 

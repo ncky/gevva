@@ -83,12 +83,12 @@ class Scheduler:
             except Exception as error:
                 job.future.set_exception(error)
 
-    def close(self):
+    def close(self, *, wait=True):
         with self.condition:
             self.closed = True
             pending, self.pending = self.pending, []
             self.condition.notify_all()
         for job in pending:
             job.future.cancel()
-        if threading.current_thread() is not self.thread:
-            self.thread.join()  # Finish the one active request before closing transport.
+        if wait and threading.current_thread() is not self.thread:
+            self.thread.join()

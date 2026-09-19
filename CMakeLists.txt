@@ -72,6 +72,7 @@ set_source_files_properties(src/nvfp4_cutlass.cu PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
+  add_subdirectory(tests)
   add_test(NAME gpu_guard COMMAND gevva-engine gpu-info)
   add_test(NAME decision_shared_kv_lifetime_and_isolation COMMAND gevva-engine decision-kv-test)
   add_test(NAME decision_segmented_global_attention COMMAND gevva-engine decision-attention-test)
